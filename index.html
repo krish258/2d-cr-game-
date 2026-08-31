@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2D Car Racing</title>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    overflow: hidden;
+    background: #228B22;
+    font-family: Arial, sans-serif;
+    touch-action: none;
+}
+
+#game {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+    background: #444;
+}
+
+/* Road */
+#road {
+    position: absolute;
+    width: 70%;
+    height: 100%;
+    left: 15%;
+    background: #444;
+}
+
+/* Road lines */
+.line {
+    position: absolute;
+    width: 8px;
+    height: 70px;
+    background: white;
+    left: 50%;
+}
+
+/* Player car */
+.car {
+    position: absolute;
+    width: 50px;
+    height: 90px;
+    border-radius: 8px;
+}
+
+/* Player */
+#player {
+    background: #1677ff;
+    bottom: 150px;
+    left: calc(50% - 25px);
+}
+
+/* Windows */
+.car::before {
+    content: "";
+    position: absolute;
+    width: 30px;
+    height: 20px;
+    background: white;
+    left: 10px;
+    top: 15px;
+    border-radius: 3px;
+}
+
+/* Wheels */
+.car::after {
+    content: "";
+    position: absolute;
+    width: 7px;
+    height: 20px;
+    background: black;
+    left: -5px;
+    top: 15px;
+    box-shadow:
+        53px 0 black,
+        0 40px black,
+        53px 40px black;
+}
+
+/* Enemy */
+.enemy {
+    background: red;
+}
+
+/* Score */
+#score {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    color: white;
+    font-size: 25px;
+    font-weight: bold;
+    z-index: 10;
+}
+
+/* Buttons */
+.controls {
+    position: absolute;
+    bottom: 25px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 25px;
+    z-index: 20;
+}
+
+button {
+    width: 130px;
+    height: 65px;
+    border: none;
+    border-radius: 15px;
+    background: black;
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+/* Game Over */
+#gameOver {
+    display: none;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    z-index: 30;
+    text-align: center;
+    color: white;
+    padding-top: 40vh;
+}
+
+#gameOver h1 {
+    font-size: 45px;
+    color: yellow;
+}
+
+#restart {
+    margin-top: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+    <div id="road"></div>
+
+    <div id="score">Score: 0</div>
+
+    <div id="player" class="car"></div>
+
+    <div class="controls">
+        <button id="left">◀ LEFT</button>
+        <button id="right">RIGHT ▶</button>
+    </div>
+
+    <div id="gameOver">
+        <h1>GAME OVER</h1>
+        <p>Score: <span id="finalScore">0</span></p>
+        <button id="restart">RESTART</button>
+    </div>
+
+</div>
+
+<script>
+
+const game = document.getElementById("game");
+const player = document.getElementById("player");
+const scoreText = document.getElementById("score");
+
+let playerX;
+let enemies = [];
+let score = 0;
+let speed = 5;
+let gameRunning = true;
+
+const roadLeft = game.clientWidth * 0.15;
+const roadWidth = game.clientWidth * 0.70;
+
+playerX = game.clientWidth / 2 - 25;
+
+
+/* ---------------- PLAYER ---------------- */
+
+function moveLeft() {
+    playerX -= 10;
+
+    if (playerX < roadLeft) {
+        playerX = roadLeft;
+    }
+
+    player.style.left = playerX + "px";
+}
+
+function moveRight() {
+    playerX += 10;
+
+    if (playerX > roadLeft + roadWidth - 50) {
+        playerX = roadLeft + roadWidth - 50;
+    }
+
+    player.style.left = playerX + "px";
+}
+
+
+/* Touch controls */
+
+document.getElementById("left").addEventListener("touchstart", function(e) {
+    e.preventDefault();
+    moveLeft();
+});
+
+document.getElementById("right").addEventListener("touchstart", function(e) {
+    e.preventDefault();
+    moveRight();
+});
+
+
+/* Also works with mouse */
+
+document.getElementById("left").addEventListener("mousedown", moveLeft);
+document.getElementById("right").addEventListener("mousedown", moveRight);
+
+
+/* ---------------- ROAD ---------------- */
+
+let lines = [];
+
+for (let i = 0; i < 8; i++) {
+
+    let line = document.createElement("div");
+
+    line.className = "line";
+
+    line.style.top = (i * 100) + "px";
+
+    game.appendChild(line);
+
+    lines.push(line);
+}
+
+
+/* Move road lines */
+
+function moveRoad() {
+
+    lines.forEach(line => {
+
+        let y = parseInt(line.style.top);
+
+        y += speed;
+
+        if (y > game.clientHeight) {
+            y = -70;
+        }
+
+        line.style.top = y + "px";
+
+    });
+}
+
+
+/* ---------------- ENEMIES ---------------- */
+
+function createEnemy() {
+
+    if (!gameRunning) return;
+
+    let enemy = document.createElement("div");
+
+    enemy.className = "car enemy";
+
+    let x =
+        roadLeft +
+        Math.random() *
+        (roadWidth - 50);
+
+    enemy.style.left = x + "px";
+    enemy.style.top = "-100px";
+
+    game.appendChild(enemy);
+
+    enemies.push(enemy);
+}
+
+
+/* ---------------- GAME LOOP ---------------- */
+
+function gameLoop() {
+
+    if (!gameRunning) return;
+
+    moveRoad();
+
+    enemies.forEach((enemy, index) => {
+
+        let y = parseInt(enemy.style.top);
+
+        y += speed;
+
+        enemy.style.top = y + "px";
+
+
+        /* Score */
+
+        if (y > game.clientHeight) {
+
+            enemy.remove();
+
+            enemies.splice(index, 1);
+
+            score++;
+
+            scoreText.innerText = "Score: " + score;
+
+            /* Increase speed */
+
+            if (score % 5 === 0) {
+                speed += 0.5;
+            }
+        }
+
+
+        /* Collision */
+
+        if (collision(player, enemy)) {
+
+            gameOver();
+
+        }
+
+    });
+
+    requestAnimationFrame(gameLoop);
+}
+
+
+/* ---------------- COLLISION ---------------- */
+
+function collision(a, b) {
+
+    let r1 = a.getBoundingClientRect();
+    let r2 = b.getBoundingClientRect();
+
+    return !(
+        r1.right < r2.left ||
+        r1.left > r2.right ||
+        r1.bottom < r2.top ||
+        r1.top > r2.bottom
+    );
+}
+
+
+/* ---------------- GAME OVER ---------------- */
+
+function gameOver() {
+
+    gameRunning = false;
+
+    document.getElementById("finalScore").innerText = score;
+
+    document.getElementById("gameOver").style.display = "block";
+}
+
+
+/* ---------------- RESTART ---------------- */
+
+document.getElementById("restart").onclick = function() {
+
+    location.reload();
+
+};
+
+
+/* Spawn enemies */
+
+setInterval(function() {
+
+    if (gameRunning) {
+        createEnemy();
+    }
+
+}, 1000);
+
+
+/* Start game */
+
+player.style.left = playerX + "px";
+
+gameLoop();
+
+</script>
+
+</body>
+</html>
+
+
+
+
